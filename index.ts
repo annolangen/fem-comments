@@ -23,7 +23,7 @@ const messageHtml = comment =>
 
 const commentHtml = comment => html`
   ${messageHtml(comment)}
-  <div class="pl-4 flex flex-col">
+  <div class="pl-4 flex flex-col border-l-2 border-grey-100">
     ${(comment.replies || []).map(commentHtml)}
   </div>
 `;
