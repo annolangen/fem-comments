@@ -1,6 +1,28 @@
 import { render, html } from "lit-html";
 import data from "./data.json";
 
+const confirmDeleteHtml = () => html`
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="mx-4 max-w-sm rounded-lg bg-white p-6">
+      <h2 class="text-2xl font-bold text-grey-800">Delete comment</h2>
+      <p class="my-4 text-grey-500">
+        Are you sure you want to delete this comment? This will remove the
+        comment and can't be undone.
+      </p>
+      <div class="grid grid-cols-2 gap-4 font-medium">
+        <button
+          class="rounded-lg bg-grey-500 py-3 text-white hover:bg-slate-400"
+        >
+          NO, CANCEL
+        </button>
+        <button class="rounded-lg bg-pink-400 py-3 text-white">
+          YES, DELETE
+        </button>
+      </div>
+    </div>
+  </div>
+`;
+
 const messageHtml = comment =>
   html`<div class="grid grid-cols-12 p-2 gap-2 bg-white rounded-md items-center">
     <img class="col-span-2 h-4/5" src=${comment.user.image.png} alt="" />
@@ -34,7 +56,7 @@ ${
     <div class="col-start-6 col-span-7 text-right mb-2">
       ${
         data.currentUser.username === comment.user.username
-          ? html` <button class="px-2 font-medium text-red-600">
+          ? html` <button class="px-2 font-medium text-pink-400">
               <span><img class="inline pr-1" src="./images/icon-delete.svg"> Delete</span>
             </button>
               <button class="px-2 font-medium text-purple-600">
@@ -57,7 +79,7 @@ const commentHtml = comment => html`
 
 const bodyHtml = () =>
   html` <div class="bg-grey-50 flex min-h-screen flex-col gap-2 p-4">
-    ${data.comments.map(commentHtml)}
+      ${data.comments.map(commentHtml)}
   </div>`;
 
 const renderBody = () => render(bodyHtml(), document.body);
