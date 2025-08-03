@@ -1,0 +1,34 @@
+{
+  "name": "fem-comments",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "format": "prettier --write \"*.{ts,html,css,json}\"",
+    "clean": "rm -rf .parcel-cache dist",
+    "build": "mkdir -p dist && cp -r images dist && parcel build --public-url ./ index.html",
+    "dev": "mkdir -p dist && cp -r images dist && parcel index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/annolangen/fem-comments.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/annolangen/fem-comments/issues"
+  },
+  "homepage": "https://github.com/annolangen/fem-comments#readme",
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "parcel": "^2.15.4",
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tailwindcss": "^4.1.11"
+  },
+  "dependencies": {
+    "lit-html": "^3.3.1"
+  }
+}
