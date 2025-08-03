@@ -80,21 +80,23 @@ const confirmDeleteHtml = () => html`
 
 const messageHtml = comment =>
   html`<div
-    class="grid grid-cols-12 items-center gap-2 rounded-md bg-white p-2"
+    class="grid grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl mx-auto"
   >
-    <img class="col-span-2 h-4/5" src=${comment.user.image.png} alt="" />
-    <div class="col-span-3 font-bold">${comment.user.username}</div>
+    <img class="col-span-2 h-4/5 md:col-start-2 md:col-span-1 md:row-start-1" src=${comment.user.image.png} alt="" />
+    <div class="col-span-5 font-bold md:col-start-3 md:col-span-3 md:row-start-1">
+    ${comment.user.username}
     ${state.currentUser.username === comment.user.username
-      ? html` <div
-          class="col-span-2 rounded-sm bg-purple-600 pt-0.5 pb-1 pl-[11px] text-sm leading-none font-bold text-white"
+      ? html` <span
+          class="w-10 h-5 rounded-xs bg-purple-600 text-sm leading-none font-bold text-grey-100"
         >
           you
-        </div>`
+    </span>`
       : null}
-    <div class="text-grey-500 col-span-5 col-start-8 content-center">
+      </div>
+    <div class="text-grey-500 col-span-5 col-start-8 content-center md:col-start-6 md:col-span-2">
       ${comment.createdAt}
     </div>
-    <div class="text-grey-500 col-span-12 row-start-2 mb-2">
+    <div class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-start-2 md:col-span-11">
       ${comment.replyingTo
         ? html`<span class="font-bold text-purple-600">
             @${comment.replyingTo}
@@ -102,16 +104,18 @@ const messageHtml = comment =>
         : null}
       ${comment.content}
     </div>
-    <div class="col-span-5 row-start-3">
+    <div
+      class="col-span-5 row-start-3 md:col-start-1 md:row-start-1 md:row-span-2 md:self-start"
+    >
       <span
-        class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600"
+        class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:flex-col md:h-20 md:w-8 md:p-0 md:gap-2 md:pt-2 md:items-center"
       >
         <img class="inline" src="./images/icon-plus.svg" />
         <span class="px-2">${comment.score}</span>
         <img class="inline" src="./images/icon-minus.svg" />
       </span>
     </div>
-    <div class="col-span-7 col-start-6 mb-2 text-right">
+    <div class="col-span-7 col-start-6 mb-2 text-right md:row-start-1 md:col-start-8">
       ${state.currentUser.username === comment.user.username
         ? html` <button class="px-2 font-medium text-pink-400" @click=${() => {
             state.requestedDelete = comment.id;
@@ -131,7 +135,7 @@ const messageHtml = comment =>
 
 const commentHtml = comment => html`
   ${messageHtml(comment)}
-  <div class="border-grey-100 flex flex-col border-l-2 pl-4">
+  <div class="border-grey-100 flex flex-col border-l-2 pl-4 md:gap-2">
     ${(comment.replies || []).map(commentHtml)}
   </div>
 `;
