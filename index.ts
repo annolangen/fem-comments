@@ -1,5 +1,6 @@
 import { render, html } from "lit-html";
 import data from "./data.json";
+import { ref, Ref, createRef } from "lit-html/directives/ref.js";
 
 interface Image {
   png: string;
@@ -17,18 +18,26 @@ interface Comment {
   createdAt: string;
   score: number;
   user: User;
-replies?: Comment[];
-replyingTo?: string;
+  replies?: Comment[];
+  replyingTo?: string;
+  pendingEdit?: boolean;
 }
 
 interface State {
   comments: Comment[];
   currentUser: User;
   requestedDelete?: number | null;
+  nextId: number;
 }
 
+const maxId = (cl: Comment[], max: number) =>
+  cl.reduce((max, c) => Math.max(max, maxId(c.replies || [], c.id)), max);
+
 // TODO: Consider localStorage
-const state = data as State;
+const state = {
+  ...data,
+  nextId: maxId(data.comments || [], 0) + 1,
+} as State;
 
 // Removes comment with ID to delete from comment or its replies. Returns false, if no comment or reply matches.
 function findAndRemove(comments: Comment[], idToDelete: number) {
@@ -78,25 +87,81 @@ const confirmDeleteHtml = () => html`
   </div>
 `;
 
+function makeCommentInputHtml(
+  addComment: (comment: Comment) => void,
+  verb: string
+) {
+  const areaRef: Ref<HTMLTextAreaElement> = createRef();
+
+  return () => html`
+    <div
+      class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
+    >
+      <div class="w-full md:order-2 md:w-auto md:flex-grow-2">
+        <textarea
+          ${ref(areaRef)}
+          name="comment"
+          placeholder="Add a comment..."
+          class="border-grey-100 h-20 w-full rounded-lg border-1 px-6 py-2"
+        ></textarea>
+      </div>
+      <img
+        class="h-9 w-9 max-w-1/2 md:order-1"
+        src=${state.currentUser.image.png}
+        alt=""
+      />
+      <div class="max-w-1/2 md:order-3">
+        <button
+          class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white"
+          @click="${onclick}"
+        >
+          ${verb}
+        </button>
+      </div>
+    </div>
+  `;
+
+  function onclick() {
+    addComment({
+      id: state.nextId++,
+      content: areaRef.value!.value,
+      user: state.currentUser,
+      createdAt: "now",
+      score: 0,
+    });
+    areaRef.value!.value = "";
+  }
+}
+
 const messageHtml = comment =>
   html`<div
-    class="grid grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl mx-auto"
+    class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
   >
-    <img class="col-span-2 h-4/5 md:col-start-2 md:col-span-1 md:row-start-1" src=${comment.user.image.png} alt="" />
-    <div class="col-span-5 font-bold md:col-start-3 md:col-span-3 md:row-start-1">
-    ${comment.user.username}
-    ${state.currentUser.username === comment.user.username
-      ? html` <span
-          class="w-10 h-5 rounded-xs bg-purple-600 text-sm leading-none font-bold text-grey-100"
-        >
-          you
-    </span>`
-      : null}
-      </div>
-    <div class="text-grey-500 col-span-5 col-start-8 content-center md:col-start-6 md:col-span-2">
+    <img
+      class="col-span-2 h-4/5 md:col-span-1 md:col-start-2 md:row-start-1"
+      src=${comment.user.image.png}
+      alt=""
+    />
+    <div
+      class="col-span-5 font-bold md:col-span-3 md:col-start-3 md:row-start-1"
+    >
+      ${comment.user.username}
+      ${state.currentUser.username === comment.user.username
+        ? html` <span
+            class="text-grey-100 rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
+          >
+            you
+          </span>`
+        : null}
+    </div>
+    <div
+      class="text-grey-500 col-span-5 col-start-8 content-center md:col-span-2 md:col-start-6"
+    >
       ${comment.createdAt}
     </div>
-    <div class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-start-2 md:col-span-11">
+    <div
+      class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-span-11 md:col-start-2"
+    >
       ${comment.replyingTo
         ? html`<span class="font-bold text-purple-600">
             @${comment.replyingTo}
@@ -105,27 +170,30 @@ const messageHtml = comment =>
       ${comment.content}
     </div>
     <div
-      class="col-span-5 row-start-3 md:col-start-1 md:row-start-1 md:row-span-2 md:self-start"
+      class="col-span-5 row-start-3 md:col-start-1 md:row-span-2 md:row-start-1 md:self-start"
     >
       <span
-        class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:flex-col md:h-20 md:w-8 md:p-0 md:gap-2 md:pt-2 md:items-center"
+        class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
       >
         <img class="inline" src="./images/icon-plus.svg" />
         <span class="px-2">${comment.score}</span>
         <img class="inline" src="./images/icon-minus.svg" />
       </span>
     </div>
-    <div class="col-span-7 col-start-6 mb-2 text-right md:row-start-1 md:col-start-8">
+    <div
+      class="col-span-7 col-start-6 mb-2 text-right md:col-start-8 md:row-start-1"
+    >
       ${state.currentUser.username === comment.user.username
-        ? html` <button class="px-2 font-medium text-pink-400" @click=${() => {
-            state.requestedDelete = comment.id;
-          }}>
+        ? html`
+        <button 
+          class="px-2 font-medium text-pink-400" 
+          @click=${() => (state.requestedDelete = comment.id)}>
               <span><img class="inline pr-1" src="./images/icon-delete.svg"> Delete</span>
-            </button>
-              <button class="px-2 font-medium text-purple-600">
-        <span><img class="inline pr-1" src="./images/icon-edit.svg"> Edit<span></button>
-      </button>
-            `
+        </button>
+        <button class="px-2 font-medium text-purple-600"
+        @click=${() => (comment.pendingEdit = true)}>
+          <span><img class="inline pr-1" src="./images/icon-edit.svg"> Edit<span></button>
+        </button>`
         : html` 
       <button class="px-2 font-medium text-purple-600">
         <span><img class="inline pr-1" src="./images/icon-reply.svg"> Reply<span></button>
@@ -135,18 +203,25 @@ const messageHtml = comment =>
 
 const commentHtml = comment => html`
   ${messageHtml(comment)}
-  <div class="border-grey-100 flex flex-col border-l-2 pl-4 md:gap-2">
+  <div
+    class="border-grey-100 mx-auto flex flex-col gap-2 border-l-2 pl-4 md:max-w-2xl"
+  >
     ${(comment.replies || []).map(commentHtml)}
   </div>
 `;
 
+const commentInputHtml = makeCommentInputHtml(
+  c => state.comments.push(c),
+  "SEND"
+);
+
 const bodyHtml = () =>
   html` <div class="bg-grey-50 flex min-h-screen flex-col gap-2 p-4">
-    ${state.comments.map(commentHtml)}
+    ${state.comments.map(commentHtml)} ${commentInputHtml()}
     ${state.requestedDelete ? confirmDeleteHtml() : null}
   </div>`;
 
 const renderBody = () => render(bodyHtml(), document.body);
 
-window.onclick = window.onhashchange = window.oninput = renderBody;
+window.onclick = window.oninput = renderBody;
 renderBody();
