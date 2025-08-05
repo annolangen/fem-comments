@@ -61,6 +61,26 @@ function deleteRequested() {
   state.requestedDelete = null;
 }
 
+const replyTo = (c: Comment) =>
+  (c.replies ??= []).push({
+    id: state.nextId++,
+    content: "",
+    createdAt: "now",
+    score: 0,
+    user: state.currentUser,
+    replyingTo: c.user.username,
+    pendingEdit: true,
+  });
+
+const newMessage = (content: string) =>
+  state.comments.push({
+    id: state.nextId++,
+    content,
+    user: state.currentUser,
+    createdAt: "now",
+    score: 0,
+  });
+
 const confirmDeleteHtml = () => html`
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="mx-4 max-w-sm rounded-lg bg-white p-6">
@@ -88,7 +108,7 @@ const confirmDeleteHtml = () => html`
 `;
 
 function makeCommentInputHtml(
-  addComment: (comment: Comment) => void,
+  onContentChange: (content: string) => void,
   verb: string
 ) {
   const areaRef: Ref<HTMLTextAreaElement> = createRef();
@@ -112,7 +132,7 @@ function makeCommentInputHtml(
       />
       <div class="max-w-1/2 md:order-3">
         <button
-          class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white"
+          class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
           @click="${onclick}"
         >
           ${verb}
@@ -122,69 +142,68 @@ function makeCommentInputHtml(
   `;
 
   function onclick() {
-    addComment({
-      id: state.nextId++,
-      content: areaRef.value!.value,
-      user: state.currentUser,
-      createdAt: "now",
-      score: 0,
-    });
+    onContentChange(areaRef.value!.value);
     areaRef.value!.value = "";
   }
 }
 
 const messageHtml = comment =>
-  html`<div
-    class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
-  >
-    <img
-      class="col-span-2 h-4/5 md:col-span-1 md:col-start-2 md:row-start-1"
-      src=${comment.user.image.png}
-      alt=""
-    />
-    <div
-      class="col-span-5 font-bold md:col-span-3 md:col-start-3 md:row-start-1"
-    >
-      ${comment.user.username}
-      ${state.currentUser.username === comment.user.username
-        ? html` <span
-            class="text-grey-100 rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
-          >
-            you
-          </span>`
-        : null}
-    </div>
-    <div
-      class="text-grey-500 col-span-5 col-start-8 content-center md:col-span-2 md:col-start-6"
-    >
-      ${comment.createdAt}
-    </div>
-    <div
-      class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-span-11 md:col-start-2"
-    >
-      ${comment.replyingTo
-        ? html`<span class="font-bold text-purple-600">
-            @${comment.replyingTo}
-          </span>`
-        : null}
-      ${comment.content}
-    </div>
-    <div
-      class="col-span-5 row-start-3 md:col-start-1 md:row-span-2 md:row-start-1 md:self-start"
-    >
-      <span
-        class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
+  comment.pendingEdit
+    ? makeCommentInputHtml(content => {
+        comment.content = content;
+        comment.pendingEdit = false;
+      }, "REPLY")()
+    : html`<div
+        class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
       >
-        <img class="inline" src="./images/icon-plus.svg" />
-        <span class="px-2">${comment.score}</span>
-        <img class="inline" src="./images/icon-minus.svg" />
-      </span>
-    </div>
-    <div
-      class="col-span-7 col-start-6 mb-2 text-right md:col-start-8 md:row-start-1"
-    >
-      ${state.currentUser.username === comment.user.username
-        ? html`
+        <img
+          class="col-span-2 h-4/5 md:col-span-1 md:col-start-2 md:row-start-1"
+          src=${comment.user.image.png}
+          alt=""
+        />
+        <div
+          class="col-span-5 font-bold md:col-span-3 md:col-start-3 md:row-start-1"
+        >
+          ${comment.user.username}
+          ${state.currentUser.username === comment.user.username
+            ? html` <span
+                class="text-grey-100 rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
+              >
+                you
+              </span>`
+            : null}
+        </div>
+        <div
+          class="text-grey-500 col-span-5 col-start-8 content-center md:col-span-2 md:col-start-6"
+        >
+          ${comment.createdAt}
+        </div>
+        <div
+          class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-span-11 md:col-start-2"
+        >
+          ${comment.replyingTo
+            ? html`<span class="font-bold text-purple-600">
+                @${comment.replyingTo}
+              </span>`
+            : null}
+          ${comment.content}
+        </div>
+        <div
+          class="col-span-5 row-start-3 md:col-start-1 md:row-span-2 md:row-start-1 md:self-start"
+        >
+          <span
+            class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
+          >
+            <img class="inline" src="./images/icon-plus.svg" />
+            <span class="px-2">${comment.score}</span>
+            <img class="inline" src="./images/icon-minus.svg" />
+          </span>
+        </div>
+        <div
+          class="col-span-7 col-start-6 mb-2 text-right md:col-start-8 md:row-start-1"
+        >
+          ${state.currentUser.username === comment.user.username
+            ? html`
         <button 
           class="px-2 font-medium text-pink-400" 
           @click=${() => (state.requestedDelete = comment.id)}>
@@ -194,12 +213,12 @@ const messageHtml = comment =>
         @click=${() => (comment.pendingEdit = true)}>
           <span><img class="inline pr-1" src="./images/icon-edit.svg"> Edit<span></button>
         </button>`
-        : html` 
-      <button class="px-2 font-medium text-purple-600">
+            : html` 
+      <button @click=${() => replyTo(comment)} class="px-2 font-medium text-purple-600">
         <span><img class="inline pr-1" src="./images/icon-reply.svg"> Reply<span></button>
       </button>`}
-    </div>
-  </div> `;
+        </div>
+      </div> `;
 
 const commentHtml = comment => html`
   ${messageHtml(comment)}
@@ -211,7 +230,7 @@ const commentHtml = comment => html`
 `;
 
 const commentInputHtml = makeCommentInputHtml(
-  c => state.comments.push(c),
+  content => newMessage(content),
   "SEND"
 );
 
