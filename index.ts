@@ -107,52 +107,47 @@ const confirmDeleteHtml = () => html`
   </div>
 `;
 
-function makeCommentInputHtml(
+const commentInputHtml = (
+  verb: string,
   onContentChange: (content: string) => void,
-  verb: string
-) {
-  const areaRef: Ref<HTMLTextAreaElement> = createRef();
-
-  return () => html`
-    <div
-      class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
-    >
-      <div class="w-full md:order-2 md:w-auto md:flex-grow-2">
-        <textarea
-          ${ref(areaRef)}
-          name="comment"
-          placeholder="Add a comment..."
-          class="border-grey-100 h-20 w-full rounded-lg border-1 px-6 py-2"
-        ></textarea>
-      </div>
-      <img
-        class="h-9 w-9 max-w-1/2 md:order-1"
-        src=${state.currentUser.image.png}
-        alt=""
-      />
-      <div class="max-w-1/2 md:order-3">
-        <button
-          class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
-          @click="${onclick}"
-        >
-          ${verb}
-        </button>
-      </div>
+  areaRef: Ref<HTMLTextAreaElement> = createRef()
+) => html`
+  <div
+    class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
+  >
+    <div class="w-full md:order-2 md:w-auto md:flex-grow-2">
+      <textarea
+        ${ref(areaRef)}
+        name="comment"
+        placeholder="Add a comment..."
+        class="border-grey-100 h-20 w-full rounded-lg border-1 px-6 py-2"
+      ></textarea>
     </div>
-  `;
-
-  function onclick() {
-    onContentChange(areaRef.value!.value);
-    areaRef.value!.value = "";
-  }
-}
+    <img
+      class="h-9 w-9 max-w-1/2 md:order-1"
+      src=${state.currentUser.image.png}
+      alt=""
+    />
+    <div class="max-w-1/2 md:order-3">
+      <button
+        class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
+        @click=${() => {
+          onContentChange(areaRef.value!.value);
+          areaRef.value!.value = "";
+        }}
+      >
+        ${verb}
+      </button>
+    </div>
+  </div>
+`;
 
 const messageHtml = comment =>
   comment.pendingEdit
-    ? makeCommentInputHtml(content => {
+    ? commentInputHtml("REPLY", content => {
         comment.content = content;
         comment.pendingEdit = false;
-      }, "REPLY")()
+      })
     : html`<div
         class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
       >
@@ -229,14 +224,9 @@ const commentHtml = comment => html`
   </div>
 `;
 
-const commentInputHtml = makeCommentInputHtml(
-  content => newMessage(content),
-  "SEND"
-);
-
 const bodyHtml = () =>
   html` <div class="bg-grey-50 flex min-h-screen flex-col gap-2 p-4">
-    ${state.comments.map(commentHtml)} ${commentInputHtml()}
+    ${state.comments.map(commentHtml)} ${commentInputHtml("SEND", newMessage)}
     ${state.requestedDelete ? confirmDeleteHtml() : null}
   </div>`;
 
