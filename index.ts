@@ -21,6 +21,7 @@ interface Comment {
   replies?: Comment[];
   replyingTo?: string;
   pendingEdit?: boolean;
+  pendingReply?: boolean;
 }
 
 interface State {
@@ -69,7 +70,7 @@ const replyTo = (c: Comment) =>
     score: 0,
     user: state.currentUser,
     replyingTo: c.user.username,
-    pendingEdit: true,
+    pendingReply: true,
   });
 
 const newMessage = (content: string) =>
@@ -92,13 +93,13 @@ const confirmDeleteHtml = () => html`
       <div class="grid grid-cols-2 gap-4 font-medium">
         <button
           @click=${() => (state.requestedDelete = null)}
-          class="bg-grey-500 rounded-lg py-3 text-white hover:bg-slate-400"
+          class="bg-grey-500 rounded-lg py-3 text-white hover:opacity-50"
         >
           NO, CANCEL
         </button>
         <button
           @click=${deleteRequested}
-          class="rounded-lg bg-pink-400 py-3 text-white"
+          class="rounded-lg bg-pink-400 py-3 text-white hover:opacity-50"
         >
           YES, DELETE
         </button>
@@ -142,11 +143,49 @@ const commentInputHtml = (
   </div>
 `;
 
-const messageHtml = comment =>
+const contentHtml = (
+  comment: Comment,
+  areaRef: Ref<HTMLTextAreaElement> = createRef(),
+  prefix: string = comment.replyingTo ? `@${comment.replyingTo} ` : ""
+) =>
   comment.pendingEdit
+    ? html`<textarea
+          name="comment"
+          ${ref(areaRef)}
+          class="border-grey-100 text-grey-500 col-span-12 row-start-2 mb-2 h-20 w-full rounded-lg border-1 px-6 py-2 md:col-span-11 md:col-start-2"
+        >
+${prefix}${comment.content}
+        </textarea
+        >
+        <div
+          class="col-span-12 row-start-4 flex flex-row justify-end md:col-span-11 md:col-start-2 md:row-start-3"
+        >
+          <button
+            @click=${() => {
+              comment.content = areaRef.value!.value.replace(prefix, "");
+              comment.pendingEdit = false;
+            }}
+            class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
+          >
+            Update
+          </button>
+        </div>`
+    : html`<div
+        class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-span-11 md:col-start-2"
+      >
+        ${comment.replyingTo
+          ? html`<span class="font-bold text-purple-600">
+              @${comment.replyingTo}
+            </span>`
+          : null}
+        ${comment.content}
+      </div>`;
+
+const messageHtml = comment =>
+  comment.pendingReply
     ? commentInputHtml("REPLY", content => {
         comment.content = content;
-        comment.pendingEdit = false;
+        comment.pendingReply = false;
       })
     : html`<div
         class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
@@ -173,16 +212,7 @@ const messageHtml = comment =>
         >
           ${comment.createdAt}
         </div>
-        <div
-          class="text-grey-500 col-span-12 row-start-2 mb-2 md:col-span-11 md:col-start-2"
-        >
-          ${comment.replyingTo
-            ? html`<span class="font-bold text-purple-600">
-                @${comment.replyingTo}
-              </span>`
-            : null}
-          ${comment.content}
-        </div>
+        ${contentHtml(comment)}
         <div
           class="col-span-5 row-start-3 md:col-start-1 md:row-span-2 md:row-start-1 md:self-start"
         >
@@ -199,17 +229,17 @@ const messageHtml = comment =>
         >
           ${state.currentUser.username === comment.user.username
             ? html`
-        <button 
-          class="px-2 font-medium text-pink-400" 
+        <button ?disabled=${comment.pendingEdit}
+          class="px-2 font-medium text-pink-400 disabled:opacity-50  hover:opacity-50" 
           @click=${() => (state.requestedDelete = comment.id)}>
               <span><img class="inline pr-1" src="./images/icon-delete.svg"> Delete</span>
         </button>
-        <button class="px-2 font-medium text-purple-600"
+        <button ?disabled=${comment.pendingEdit} class="px-2 font-medium text-purple-600 disabled:opacity-50  hover:opacity-50"
         @click=${() => (comment.pendingEdit = true)}>
           <span><img class="inline pr-1" src="./images/icon-edit.svg"> Edit<span></button>
         </button>`
             : html` 
-      <button @click=${() => replyTo(comment)} class="px-2 font-medium text-purple-600">
+      <button @click=${() => replyTo(comment)} class="px-2 font-medium text-purple-600 hover:opacity-50">
         <span><img class="inline pr-1" src="./images/icon-reply.svg"> Reply<span></button>
       </button>`}
         </div>
