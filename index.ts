@@ -217,11 +217,19 @@ const messageHtml = comment =>
           class="col-span-5 row-start-3 md:col-start-1 md:row-span-2 md:row-start-1 md:self-start"
         >
           <span
-            class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
+            class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 hover:opacity-50 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
           >
-            <img class="inline" src="./images/icon-plus.svg" />
+            <img
+              class="inline"
+              src="./images/icon-plus.svg"
+              @click=${() => comment.score++}
+            />
             <span class="px-2">${comment.score}</span>
-            <img class="inline" src="./images/icon-minus.svg" />
+            <img
+              class="inline"
+              src="./images/icon-minus.svg"
+              @click=${() => comment.score--}
+            />
           </span>
         </div>
         <div
