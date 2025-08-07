@@ -16,6 +16,8 @@ interface Comment {
   id: number;
   content: string;
   createdAt: string;
+  createdAtTs?: number; // Timestamp in milliseconds
+  createdAtTextExpiration?: number; // Expiration time for the createdAt text
   score: number;
   user: User;
   replies?: Comment[];
@@ -40,6 +42,69 @@ const state = {
   nextId: maxId(data.comments || [], 0) + 1,
 } as State;
 
+const durationUnits = [
+  { name: "year", secs: 365 * 24 * 60 * 60 },
+  { name: "month", secs: 30 * 24 * 60 * 60 },
+  { name: "week", secs: 7 * 24 * 60 * 60 },
+  { name: "day", secs: 24 * 60 * 60 },
+  { name: "hour", secs: 60 * 60 },
+  { name: "minute", secs: 60 },
+  { name: "second", secs: 1 },
+];
+
+function parseCreatedAt(str: string): {
+  ts: number;
+  expiration: number;
+} {
+  const now = Date.now();
+  const match = str.match(/(\d+)\s(\w+)/);
+  if (match) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    for (const { name, secs } of durationUnits) {
+      if (unit.startsWith(name)) {
+        return {
+          ts: now - value * secs * 1000,
+          expiration: now + secs * 1000,
+        };
+      }
+    }
+  }
+  return { ts: now, expiration: now + 1000 };
+}
+
+function addTimestamps(comments: Comment[]) {
+  for (const c of comments) {
+    if (!c.createdAtTs) {
+      const { ts, expiration } = parseCreatedAt(c.createdAt);
+      c.createdAtTs = ts;
+      c.createdAtTextExpiration = expiration;
+    }
+    addTimestamps(c.replies || []);
+  }
+}
+addTimestamps(state.comments);
+
+function createdAtText(c: Comment): string {
+  const now = Date.now();
+  if (
+    c.createdAtTs &&
+    c.createdAtTextExpiration &&
+    now > c.createdAtTextExpiration
+  ) {
+    const diff = Math.max(0, Math.floor((now - c.createdAtTs) / 1000));
+    for (const { name, secs } of durationUnits) {
+      const value = Math.floor(diff / secs);
+      if (value >= 1) {
+        c.createdAt = `${value} ${name}${value > 1 ? "s" : ""} ago`;
+        c.createdAtTextExpiration = now + secs * 1000;
+        break;
+      }
+    }
+  }
+  return c.createdAt;
+}
+
 // Removes comment with ID to delete from comment or its replies. Returns false, if no comment or reply matches.
 function findAndRemove(comments: Comment[], idToDelete: number) {
   const commentIndex = comments.findIndex(c => c.id === idToDelete);
@@ -62,25 +127,25 @@ function deleteRequested() {
   state.requestedDelete = null;
 }
 
+const newComment = (content: string): Comment => ({
+  id: state.nextId++,
+  content,
+  user: state.currentUser,
+  createdAt: "now",
+  createdAtTs: Date.now(),
+  createdAtTextExpiration: Date.now() + 1000,
+  score: 0,
+});
+
 const replyTo = (c: Comment) =>
   (c.replies ??= []).push({
-    id: state.nextId++,
-    content: "",
-    createdAt: "now",
-    score: 0,
-    user: state.currentUser,
+    ...newComment(""),
     replyingTo: c.user.username,
     pendingReply: true,
   });
 
 const newMessage = (content: string) =>
-  state.comments.push({
-    id: state.nextId++,
-    content,
-    user: state.currentUser,
-    createdAt: "now",
-    score: 0,
-  });
+  state.comments.push(newComment(content));
 
 const confirmDeleteHtml = () => html`
   <div
@@ -124,8 +189,10 @@ const commentInputHtml = (
   <form
     class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
     @submit=${e => {
+      e.preventDefault();
       onContentChange(areaRef.value!.value);
       areaRef.value!.value = "";
+      renderBody();
     }}
     aria-label="Add a comment"
   >
@@ -279,9 +346,9 @@ const messageHtml = comment =>
             : null}
         </div>
         <div
-          class="text-grey-500 col-span-5 col-start-8 content-center md:col-span-2 md:col-start-6"
+          class="text-grey-500 col-span-5 col-start-8 content-center md:col-span-3 md:col-start-6"
         >
-          ${comment.createdAt}
+          ${createdAtText(comment)}
         </div>
         ${contentHtml(comment)}
         <div
@@ -290,7 +357,7 @@ const messageHtml = comment =>
           ${voteButtonsHtml(comment)}
         </div>
         <div
-          class="col-span-7 col-start-6 mb-2 text-right md:col-start-8 md:row-start-1"
+          class="col-span-7 col-start-6 mb-2 text-right md:col-start-9 md:row-start-1"
         >
           ${actionButtonsHtml(comment)}
         </div>
@@ -319,5 +386,7 @@ const bodyHtml = () =>
 
 const renderBody = () => render(bodyHtml(), document.body);
 
-window.onclick = window.oninput = window.onsubmit = renderBody;
+window.onclick = window.oninput = renderBody;
 renderBody();
+console.log("Rendered initial body");
+setInterval(renderBody, 1000);
