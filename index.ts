@@ -124,7 +124,6 @@ const commentInputHtml = (
   <form
     class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
     @submit=${e => {
-      e.preventDefault();
       onContentChange(areaRef.value!.value);
       areaRef.value!.value = "";
     }}
@@ -197,7 +196,7 @@ ${prefix}${comment.content}
 
 const voteButtonsHtml = (comment: Comment) => html`
   <span
-    class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 hover:opacity-50 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
+    class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 hover:text-purple-200 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
   >
     <button
       aria-label="Upvote comment"
@@ -222,7 +221,7 @@ const actionButtonsHtml = (comment: Comment) =>
     ? html`
         <button
           ?disabled=${comment.pendingEdit}
-          class="px-2 font-medium text-pink-400 hover:opacity-50 disabled:opacity-50"
+          class="px-2 font-medium text-pink-400 hover:text-pink-200 disabled:cursor-not-allowed disabled:opacity-50"
           @click=${() => (state.requestedDelete = comment.id)}
         >
           <span
@@ -232,7 +231,7 @@ const actionButtonsHtml = (comment: Comment) =>
         </button>
         <button
           ?disabled=${comment.pendingEdit}
-          class="px-2 font-medium text-purple-600 hover:opacity-50 disabled:opacity-50"
+          class="px-2 font-medium text-purple-600 hover:text-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
           @click=${() => (comment.pendingEdit = true)}
         >
           <span
@@ -243,7 +242,8 @@ const actionButtonsHtml = (comment: Comment) =>
     : html`
         <button
           @click=${() => replyTo(comment)}
-          class="px-2 font-medium text-purple-600 hover:opacity-50"
+          ?disabled=${(comment.replies ?? []).some(r => r.pendingReply)}
+          class="px-2 font-medium text-purple-600 hover:text-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span
             ><img class="inline pr-1" src="./images/icon-reply.svg" />
@@ -272,7 +272,7 @@ const messageHtml = comment =>
           ${comment.user.username}
           ${state.currentUser.username === comment.user.username
             ? html` <span
-                class="text-grey-100 rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
+                class="text-grey-100 cursor-not-allowed rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
               >
                 you
               </span>`
@@ -319,5 +319,5 @@ const bodyHtml = () =>
 
 const renderBody = () => render(bodyHtml(), document.body);
 
-window.onclick = window.oninput = renderBody;
+window.onclick = window.oninput = window.onsubmit = renderBody;
 renderBody();
