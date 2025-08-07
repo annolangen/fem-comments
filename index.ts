@@ -388,5 +388,4 @@ const renderBody = () => render(bodyHtml(), document.body);
 
 window.onclick = window.oninput = renderBody;
 renderBody();
-console.log("Rendered initial body");
 setInterval(renderBody, 1000);
