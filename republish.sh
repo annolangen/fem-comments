@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEST=~/github/annolangen.github.io/comments
+DEST=~/github/annolangen.github.io/fem-comments
 
 rm -rf dist .parcel-cache $DEST/*
 npm run build
