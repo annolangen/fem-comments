@@ -288,9 +288,9 @@ ${prefix}${comment.content}
               comment.content = areaRef.value!.value.replace(prefix, "");
               comment.pendingEdit = false;
             }}
-            class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
+            class="h-12 rounded-lg bg-purple-600 px-8 text-lg font-medium text-white hover:bg-purple-200 md:h-10 md:px-6"
           >
-            Update
+            UPDATE
           </button>
         </div>`
     : html`<div
@@ -339,7 +339,7 @@ const commentInputHtml = (
     <div class="max-w-1/2 md:order-3">
       <button
         type="submit"
-        class="h-12 rounded-lg bg-purple-600 px-8 text-xl font-medium text-white hover:bg-purple-200"
+        class="h-12 rounded-lg bg-purple-600 px-8 text-lg font-medium text-white hover:bg-purple-200 md:h-10 md:px-6"
       >
         ${verb}
       </button>
