@@ -32,8 +32,8 @@ Users should be able to:
 
 ### Links
 
-- Solution URL: [Add solution URL here](https://github.com/annolangen/fem-comments.git)
-- Live Site URL: [Add live site URL here](https://annolangen.github.io/fem-comments/)
+- Solution URL: https://github.com/annolangen/fem-comments.git
+- Live Site URL: https://annolangen.github.io/fem-comments/
 
 ## My process
 
@@ -47,8 +47,8 @@ Users should be able to:
 
 I am happy with the tools and their restricted use for the scale of project that is typical for Frontend Mentor challenges. They have all been single page apps with minimal routing complexity.
 
-- Parcel has excellent defaults for TypeScript, good support for Tailwind CSS, and potentially useful asset handling. For Frontend Mentor challenges, asset handling gets in the way, and circumvent it by copying assets into the output directory.
-- Lit-html caches the dom and enables a reactive programming style: the rendered HTML is simply a function of state. There is no additional concern with updating component state, or observables, or all that framework stuff. Just keep your wits about you about how much work is performed in the render function.
+- Parcel has excellent defaults for TypeScript, good support for Tailwind CSS, and potentially useful asset handling. For Frontend Mentor challenges, asset handling gets in the way, and I circumvent it by copying assets into the output directory.
+- Lit-html caches the DOM and enables a declarative, reactive programming style. The core idea, coming from functional programming, is that the rendered HTML is a function of state. When the state changes, the UI "reacts" and updates automatically. This removes the need for DOM manipulation and the complex state management (like observables) found in some other frameworks. You just need to be mindful of the work performed in the render function.
 - Tailwind works well with lit-html because it is just CSS rather than a UI framework with some JavaScript. The combination of lit-html and Tailwind enables a nearly single source style. No navigation between stylesheet and component file - just TypeScript. It is possible to add CSS classes to the stylesheet, and I do define the colors from the style guide there. If I were more willing to jump between index.css and index.ts, I would define the purple button CSS as a class.
 
 ### What I learned
@@ -70,4 +70,4 @@ I improved my comfort with CSS grids. The comments section layout differs betwee
 ### Useful resources
 
 - [Tailwind docs](https://tailwindcss.com/docs/flex) - This searchable, official documentation is precise and concise.
-- [Lit-html](https://lit.dev/docs/templates/expressions) - You can get really far with just lit-html's template literals and event expressions. But then some simple things get complicated. For example, the distinction between attributes and properties, and referencing the DOM node for focus or peer input.
+- [Lit-html](https://lit.dev/docs/templates/expressions) - The documentation is excellent. While its core concepts (template literals and event expressions) are very powerful and easy to grasp, the docs help with more nuanced topics. For instance, they explain the distinction between attribute and property bindings and address how to reference a DOM element that is not an event target.
