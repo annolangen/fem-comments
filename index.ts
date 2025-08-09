@@ -189,14 +189,12 @@ const newComment = (content: string): Comment => ({
   score: 0,
 });
 
-const replyTo = (c: Comment) => {
+const replyTo = (c: Comment) =>
   (c.replies ??= []).push({
     ...newComment(""),
     replyingTo: c.user.username,
     pendingReply: true,
   });
-  saveState();
-};
 
 const newMessage = (content: string) => {
   state.comments.push(newComment(content));
@@ -388,6 +386,7 @@ const messageHtml = comment =>
     ? commentInputHtml("REPLY", content => {
         comment.content = content;
         comment.pendingReply = false;
+        saveState();
       })
     : html`<div
         class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
