@@ -225,7 +225,7 @@ const voteButtonsHtml = (comment: Comment) => html`
         saveState();
       }}
     >
-      <img src="./images/icon-minus.svg" alt="minus" />
+      <img src="./images/icon-minus.svg" class="inline" alt="minus" />
     </button>
   </span>
 `;
