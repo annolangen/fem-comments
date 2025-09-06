@@ -42,12 +42,12 @@ Users should be able to:
 - Mobile-first workflow
 - [Lit-html](https://lit.dev/docs/libraries/standalone-templates/) - For rendering
 - [Tailwind CSS](https://tailwindcss.com/) - For utility-first CSS styling
-- [Parcel](https://parceljs.org/) - For development and bundling
+- [Vite](https://vitejs.dev/) - For development and bundling
 - [TypeScript](https://www.typescriptlang.org/) - For type safety
 
 I am happy with the tools and their restricted use for the scale of project that is typical for Frontend Mentor challenges. They have all been single page apps with minimal routing complexity.
 
-- Parcel has excellent defaults for TypeScript, good support for Tailwind CSS, and potentially useful asset handling. For Frontend Mentor challenges, asset handling gets in the way, and I circumvent it by copying assets into the output directory.
+- Vite provides a fast and lean development experience. It has excellent defaults for TypeScript, first-class support for Tailwind CSS via plugins, and handles static assets in the `public` directory intuitively without extra configuration.
 - Lit-html caches the DOM and enables a declarative, reactive programming style. The core idea, coming from functional programming, is that the rendered HTML is a function of state. When the state changes, the UI "reacts" and updates automatically. This removes the need for DOM manipulation and the complex state management (like observables) found in some other frameworks. You just need to be mindful of the work performed in the render function.
 - Tailwind works well with lit-html because it is just CSS rather than a UI framework with some JavaScript. The combination of lit-html and Tailwind enables a nearly single source style. No navigation between stylesheet and component file - just TypeScript. It is possible to add CSS classes to the stylesheet, and I do define the colors from the style guide there. If I were more willing to jump between index.css and index.ts, I would define the purple button CSS as a class.
 

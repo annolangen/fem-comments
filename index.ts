@@ -1,6 +1,8 @@
 // Imports
+import "./index.css";
 import { render, html } from "lit-html";
-import { ref, Ref, createRef } from "lit-html/directives/ref.js";
+import { ref, createRef } from "lit-html/directives/ref.js";
+import type { Ref } from "lit-html/directives/ref.js";
 import data from "./data.json";
 
 /**

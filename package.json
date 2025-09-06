@@ -2,11 +2,12 @@
   "name": "fem-comments",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "scripts": {
-    "format": "prettier --write \"*.{ts,html,css,json}\"",
-    "clean": "rm -rf .parcel-cache dist",
-    "build": "mkdir -p dist && cp -r images dist && parcel build --public-url ./ index.html",
-    "dev": "mkdir -p dist && cp -r images dist && parcel index.html",
+    "format": "prettier --write '*.{ts,html,css,json}'",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -16,19 +17,19 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/annolangen/fem-comments/issues"
   },
   "homepage": "https://github.com/annolangen/fem-comments#readme",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "lit-html": "^3.3.1",
+    "tailwindcss": "^4.1.13"
+  },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.11",
-    "parcel": "^2.15.4",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
-    "tailwindcss": "^4.1.11"
-  },
-  "dependencies": {
-    "lit-html": "^3.3.1"
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2"
   }
 }
