@@ -1,8 +1,8 @@
 // Imports
 import "./index.css";
 import { render, html } from "lit-html";
-import { ref, createRef } from "lit-html/directives/ref.js";
-import type { Ref } from "lit-html/directives/ref.js";
+import { createStore } from "zustand/vanilla";
+import { persist } from "zustand/middleware";
 import data from "./data.json";
 
 /**
@@ -58,11 +58,33 @@ interface Comment {
   pendingReply?: boolean;
 }
 
-interface State {
+interface AppState {
   comments: Comment[];
   currentUser: User;
-  requestedDelete?: number | null;
+  requestedDelete: number | null;
   nextId: number;
+  newCommentContent: string;
+}
+
+type Actions = {
+  /** Finds a comment by ID and applies a mutator function to it. */
+  findAndMutate: (id: number, mutator: (c: Comment) => void) => void;
+  /** Updates the content of the new comment input field. */
+  setNewCommentContent: (content: string) => void;
+  /** Adds a new top-level comment. */
+  addComment: () => void;
+  /** Creates a new pending reply for a given parent comment. */
+  addReply: (parentId: number) => void;
+  /** Deletes a comment or reply by its ID. */
+  deleteComment: (id: number) => void;
+  /** Sets the ID of the comment requested for deletion to show the confirmation modal. */
+  setRequestedDelete: (id: number | null) => void;
+  /** Submits a pending reply, or cancels it if the content is empty. */
+  submitReply: (id: number) => void;
+};
+
+interface State extends AppState {
+  actions: Actions;
 }
 
 // Constants
@@ -76,34 +98,149 @@ const durationUnits = [
   { name: "second", secs: 1 },
 ];
 
-// State Management
-const maxId = (cl: Comment[], max: number) =>
-  cl.reduce((max, c) => Math.max(max, maxId(c.replies || [], c.id)), max);
+// State Management with Zustand
+const maxId = (cl: Comment[], max = 0): number =>
+  cl.reduce((agg, c) => Math.max(agg, maxId(c.replies || [], c.id)), max);
 
-function loadFromData() {
-  const state = {
-    ...data,
-    nextId: maxId(data.comments || [], 0) + 1,
-  } as State;
-  addTimestamps(state.comments);
-  return state;
-}
-
-function loadState(): State {
-  const stored = localStorage.getItem("commentState");
-  if (stored) {
-    const loaded = JSON.parse(stored);
-    // Ensure nextId is computed from actual comments
-    loaded.nextId = maxId(loaded.comments || [], 0) + 1;
-    return loaded as State;
+function findComment(comments: Comment[], id: number): Comment | undefined {
+  for (const c of comments) {
+    if (c.id === id) return c;
+    const foundInReplies = findComment(c.replies || [], id);
+    if (foundInReplies) return foundInReplies;
   }
-  return loadFromData();
+  return undefined;
 }
 
-const saveState = () =>
-  localStorage.setItem("commentState", JSON.stringify(state));
+if (window.location.hash === "#reset") {
+  localStorage.removeItem("comment-state");
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search
+  );
+}
 
-const state = window.location.hash === "#reset" ? loadFromData() : loadState();
+const initialCommentsWithTimestamps = structuredClone(data.comments);
+addTimestamps(initialCommentsWithTimestamps);
+
+const initialState: AppState = {
+  comments: initialCommentsWithTimestamps,
+  currentUser: data.currentUser as User,
+  requestedDelete: null as number | null,
+  nextId: maxId(initialCommentsWithTimestamps) + 1,
+  newCommentContent: "",
+};
+
+const createActions = (
+  set: (updater: Partial<State> | ((state: State) => Partial<State>)) => void,
+  get: () => State
+): Actions => {
+  /** Creates a new comment object with default properties. */
+  const createComment = (id: number, content: string): Comment => ({
+    id,
+    content,
+    user: get().currentUser,
+    createdAt: "now",
+    createdAtTs: Date.now(),
+    createdAtTextExpiration: Date.now() + 1000,
+    score: 0,
+    replies: [], // New comments/replies start with an empty replies array
+  });
+
+  function findAndMutate(id: number, mutator: (c: Comment) => void) {
+    const newComments = structuredClone(get().comments); // structuredClone is fine for this app's scale
+    const comment = findComment(newComments, id);
+    if (comment) {
+      mutator(comment);
+      set({ comments: newComments });
+    }
+  }
+
+  function deleteComment(id: number) {
+    const state = get();
+    const newComments = structuredClone(state.comments);
+    findAndRemove(newComments, id);
+    set({ comments: newComments, requestedDelete: null });
+
+    function findAndRemove(comments: Comment[], idToDelete: number): boolean {
+      const index = comments.findIndex(c => c.id === idToDelete);
+      if (index !== -1) {
+        comments.splice(index, 1);
+        return true;
+      }
+      return comments.some(c => findAndRemove(c.replies || [], idToDelete));
+    }
+  }
+
+  function submitReply(id: number) {
+    const state = get();
+    const commentToSubmit = findComment(state.comments, id);
+    // If the reply content is empty, treat it as a "cancel" and remove the pending reply.
+    if (commentToSubmit && !commentToSubmit.content.trim()) {
+      deleteComment(id); // Direct call, no need for get().actions
+      return; // Do not increment nextId
+    }
+    // Otherwise, finalize the reply.
+    findAndMutate(id, c => {
+      // Direct call
+      c.pendingReply = false;
+    });
+  }
+
+  function addReply(parentId: number) {
+    const state = get();
+    const newId = state.nextId;
+    findAndMutate(parentId, parentComment => {
+      const newReply: Comment = {
+        ...createComment(newId, ""),
+        replyingTo: parentComment.user.username,
+        pendingReply: true,
+      };
+      (parentComment.replies ??= []).push(newReply as Comment);
+    });
+    set({ nextId: newId + 1 });
+  }
+
+  return {
+    findAndMutate,
+    deleteComment,
+    submitReply,
+    addReply,
+    setNewCommentContent: (content: string) =>
+      set({ newCommentContent: content }),
+    addComment: () => {
+      const state = get();
+      const content = state.newCommentContent.trim();
+      if (!content) return;
+      const newComment = createComment(state.nextId, content);
+      set(s => ({
+        comments: [...s.comments, newComment],
+        nextId: s.nextId + 1,
+        newCommentContent: "",
+      }));
+    },
+    setRequestedDelete: (id: number | null) => set({ requestedDelete: id }),
+  };
+};
+
+const { getState, subscribe } = createStore<State>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
+      actions: createActions(set, get),
+    }),
+    {
+      name: "comment-state",
+      partialize: state => ({
+        // Only persist data, not transient UI state
+        comments: state.comments,
+        currentUser: state.currentUser,
+        nextId: state.nextId,
+      }),
+    }
+  )
+);
+const { actions: storeActions } = getState();
 
 // Core Business Logic
 function parseCreatedAt(str: string): {
@@ -158,50 +295,12 @@ function createdAtText(c: Comment): string {
   return c.createdAt;
 }
 
-// Removes comment with ID to delete from comment or its replies. Returns false, if no comment or reply matches.
-function findAndRemove(comments: Comment[], idToDelete: number) {
-  const commentIndex = comments.findIndex(c => c.id === idToDelete);
-  if (commentIndex > -1) {
-    comments.splice(commentIndex, 1);
-    return true;
-  }
-
-  // If not found, recursively search in the replies of each comment.
-  for (const comment of comments) {
-    if (findAndRemove(comment.replies || [], idToDelete)) return true;
-  }
-
-  return false;
-}
-
 function deleteRequested() {
-  if (!state.requestedDelete) return;
-  findAndRemove(state.comments, state.requestedDelete);
-  state.requestedDelete = null;
-  saveState();
+  const id = getState().requestedDelete;
+  if (id) storeActions.deleteComment(id);
 }
 
-const newComment = (content: string): Comment => ({
-  id: state.nextId++,
-  content,
-  user: state.currentUser,
-  createdAt: "now",
-  createdAtTs: Date.now(),
-  createdAtTextExpiration: Date.now() + 1000,
-  score: 0,
-});
-
-const replyTo = (c: Comment) =>
-  (c.replies ??= []).push({
-    ...newComment(""),
-    replyingTo: c.user.username,
-    pendingReply: true,
-  });
-
-const newMessage = (content: string) => {
-  state.comments.push(newComment(content));
-  saveState();
-};
+const replyTo = (c: Comment) => storeActions.addReply(c.id);
 
 // UI Components (from smallest to largest)
 const voteButtonsHtml = (comment: Comment) => html`
@@ -211,10 +310,7 @@ const voteButtonsHtml = (comment: Comment) => html`
     <button
       aria-label="Upvote comment"
       class="inline"
-      @click=${() => {
-        comment.score++;
-        saveState();
-      }}
+      @click=${() => storeActions.findAndMutate(comment.id, c => c.score++)}
     >
       <img src="./images/icon-plus.svg" alt="plus" />
     </button>
@@ -222,10 +318,7 @@ const voteButtonsHtml = (comment: Comment) => html`
     <button
       aria-label="Downvote comment"
       class="inline"
-      @click=${() => {
-        comment.score--;
-        saveState();
-      }}
+      @click=${() => storeActions.findAndMutate(comment.id, c => c.score--)}
     >
       <img src="./images/icon-minus.svg" class="inline" alt="minus" />
     </button>
@@ -233,12 +326,12 @@ const voteButtonsHtml = (comment: Comment) => html`
 `;
 
 const actionButtonsHtml = (comment: Comment) =>
-  state.currentUser.username === comment.user.username
+  getState().currentUser.username === comment.user.username
     ? html`
         <button
           ?disabled=${comment.pendingEdit}
           class="px-2 font-medium text-pink-400 hover:text-pink-200 disabled:cursor-not-allowed disabled:opacity-50"
-          @click=${() => (state.requestedDelete = comment.id)}
+          @click=${() => storeActions.setRequestedDelete(comment.id)}
         >
           <span
             ><img class="inline pr-1" src="./images/icon-delete.svg" />
@@ -248,7 +341,8 @@ const actionButtonsHtml = (comment: Comment) =>
         <button
           ?disabled=${comment.pendingEdit}
           class="px-2 font-medium text-purple-600 hover:text-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
-          @click=${() => (comment.pendingEdit = true)}
+          @click=${() =>
+            storeActions.findAndMutate(comment.id, c => (c.pendingEdit = true))}
         >
           <span
             ><img class="inline pr-1" src="./images/icon-edit.svg" /> Edit</span
@@ -270,25 +364,35 @@ const actionButtonsHtml = (comment: Comment) =>
 
 const contentHtml = (
   comment: Comment,
-  areaRef: Ref<HTMLTextAreaElement> = createRef(),
   prefix: string = comment.replyingTo ? `@${comment.replyingTo} ` : ""
 ) =>
   comment.pendingEdit
     ? html`<textarea
+          .value=${prefix + comment.content}
+          @input=${(e: Event) =>
+            storeActions.findAndMutate(
+              comment.id,
+              c =>
+                (c.content = (e.target as HTMLTextAreaElement).value.replace(
+                  prefix,
+                  ""
+                ))
+            )}
           name="comment"
-          ${ref(areaRef)}
           class="border-grey-100 text-grey-500 col-span-12 row-start-2 mb-2 h-20 w-full rounded-lg border-1 px-6 py-2 md:col-span-11 md:col-start-2"
-        >
-${prefix}${comment.content}
-        </textarea
-        >
+        ></textarea>
         <div
           class="col-span-12 row-start-4 flex flex-row justify-end md:col-span-11 md:col-start-2 md:row-start-3"
         >
           <button
             @click=${() => {
-              comment.content = areaRef.value!.value.replace(prefix, "");
-              comment.pendingEdit = false;
+              // The content is already in the state. Just finalize the edit.
+              if (comment.content.trim()) {
+                storeActions.findAndMutate(
+                  comment.id,
+                  c => (c.pendingEdit = false)
+                );
+              }
             }}
             class="h-12 rounded-lg bg-purple-600 px-8 text-lg font-medium text-white hover:bg-purple-200 md:h-10 md:px-6"
           >
@@ -308,17 +412,16 @@ ${prefix}${comment.content}
 
 const commentInputHtml = (
   verb: string,
-  onContentChange: (content: string) => void,
-  areaRef: Ref<HTMLTextAreaElement> = createRef()
+  onSubmit: () => void,
+  value: string,
+  onInput: (content: string) => void
 ) => html`
   <form
     class="mx-auto flex w-full flex-wrap items-start justify-between gap-2 rounded-md bg-white p-4 md:w-full md:max-w-2xl"
     @submit=${e => {
       // See "Form Submission and Event Handling" comment at top of file
       e.preventDefault();
-      onContentChange(areaRef.value!.value);
-      areaRef.value!.value = "";
-      renderBody();
+      onSubmit();
     }}
     aria-label="Add a comment"
   >
@@ -326,16 +429,17 @@ const commentInputHtml = (
       <label for="comment-textarea" class="sr-only">Add a comment</label>
       <textarea
         id="comment-textarea"
-        ${ref(areaRef)}
         name="comment"
         placeholder="Add a comment..."
+        .value=${value}
+        @input=${(e: Event) => onInput((e.target as HTMLTextAreaElement).value)}
         class="border-grey-100 h-20 w-full rounded-lg border-1 px-6 py-2"
         aria-label="Comment text"
       ></textarea>
     </div>
     <img
       class="h-9 w-9 max-w-1/2 md:order-1"
-      src=${state.currentUser.image.png}
+      src=${getState().currentUser.image.png}
       alt="Your profile picture"
     />
     <div class="max-w-1/2 md:order-3">
@@ -367,7 +471,7 @@ const confirmDeleteHtml = () => html`
       </p>
       <div class="grid grid-cols-2 gap-4 font-medium">
         <button
-          @click=${() => (state.requestedDelete = null)}
+          @click=${() => storeActions.setRequestedDelete(null)}
           class="bg-grey-500 rounded-lg py-3 text-white hover:opacity-50"
         >
           NO, CANCEL
@@ -385,11 +489,13 @@ const confirmDeleteHtml = () => html`
 
 const messageHtml = comment =>
   comment.pendingReply
-    ? commentInputHtml("REPLY", content => {
-        comment.content = content;
-        comment.pendingReply = false;
-        saveState();
-      })
+    ? commentInputHtml(
+        "SUBMIT",
+        () => storeActions.submitReply(comment.id),
+        comment.content,
+        newContent =>
+          storeActions.findAndMutate(comment.id, c => (c.content = newContent))
+      )
     : html`<div
         class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
       >
@@ -399,10 +505,10 @@ const messageHtml = comment =>
           alt=""
         />
         <div
-          class="col-span-5 font-bold md:col-span-3 md:col-start-3 md:row-start-1"
+          class="col-span-5 flex items-center gap-2 font-bold md:col-span-3 md:col-start-3 md:row-start-1"
         >
           ${comment.user.username}
-          ${state.currentUser.username === comment.user.username
+          ${getState().currentUser.username === comment.user.username
             ? html` <span
                 class="text-grey-100 cursor-not-allowed rounded-xs bg-purple-600 px-1 pt-0.5 pb-1 text-sm leading-none font-bold"
               >
@@ -441,17 +547,28 @@ const commentHtml = comment => html`
 `;
 
 // App Initialization
-const bodyHtml = () =>
-  html` <section
+function bodyHtml() {
+  const state = getState();
+  return html` <section
     class="bg-grey-50 flex min-h-screen flex-col gap-2 p-4"
     aria-label="Comments section"
   >
-    ${state.comments.map(commentHtml)} ${commentInputHtml("SEND", newMessage)}
+    ${state.comments.map(commentHtml)}
+    ${commentInputHtml(
+      "SEND",
+      storeActions.addComment,
+      state.newCommentContent,
+      storeActions.setNewCommentContent
+    )}
     ${state.requestedDelete ? confirmDeleteHtml() : null}
   </section>`;
+}
 
 const renderBody = () => render(bodyHtml(), document.body);
 
-window.onclick = window.oninput = renderBody;
-renderBody();
+// Subscribe to store changes for re-rendering
+subscribe(renderBody);
+
+// The `createdAtText` function has internal logic to only update the text
+// when needed, so calling `renderBody` frequently is efficient.
 setInterval(renderBody, 1000);
