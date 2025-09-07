@@ -5,7 +5,15 @@ import { store, durationUnits } from "./src/store";
 import type { Comment } from "./src/types";
 
 const { getState, subscribe } = store;
-const { actions: storeActions } = getState();
+const {
+  addComment,
+  addReply,
+  deleteComment,
+  findAndMutate,
+  setNewCommentContent,
+  setRequestedDelete,
+  submitReply,
+} = getState().actions;
 
 if (window.location.hash === "#reset") {
   localStorage.removeItem("comment-state");
@@ -17,7 +25,6 @@ if (window.location.hash === "#reset") {
 }
 
 // Core Business Logic
-
 
 function createdAtText(c: Comment): string {
   const now = Date.now();
@@ -41,10 +48,8 @@ function createdAtText(c: Comment): string {
 
 function deleteRequested() {
   const id = getState().requestedDelete;
-  if (id) storeActions.deleteComment(id);
+  if (id) deleteComment(id);
 }
-
-const replyTo = (c: Comment) => storeActions.addReply(c.id);
 
 // UI Components (from smallest to largest)
 const voteButtonsHtml = (comment: Comment) => html`
@@ -54,7 +59,7 @@ const voteButtonsHtml = (comment: Comment) => html`
     <button
       aria-label="Upvote comment"
       class="inline"
-      @click=${() => storeActions.findAndMutate(comment.id, c => c.score++)}
+      @click=${() => findAndMutate(comment.id, c => c.score++)}
     >
       <img src="./images/icon-plus.svg" alt="plus" />
     </button>
@@ -62,7 +67,7 @@ const voteButtonsHtml = (comment: Comment) => html`
     <button
       aria-label="Downvote comment"
       class="inline"
-      @click=${() => storeActions.findAndMutate(comment.id, c => c.score--)}
+      @click=${() => findAndMutate(comment.id, c => c.score--)}
     >
       <img src="./images/icon-minus.svg" class="inline" alt="minus" />
     </button>
@@ -75,7 +80,7 @@ const actionButtonsHtml = (comment: Comment) =>
         <button
           ?disabled=${comment.pendingEdit}
           class="px-2 font-medium text-pink-400 hover:text-pink-200 disabled:cursor-not-allowed disabled:opacity-50"
-          @click=${() => storeActions.setRequestedDelete(comment.id)}
+          @click=${() => setRequestedDelete(comment.id)}
         >
           <span
             ><img class="inline pr-1" src="./images/icon-delete.svg" />
@@ -85,8 +90,7 @@ const actionButtonsHtml = (comment: Comment) =>
         <button
           ?disabled=${comment.pendingEdit}
           class="px-2 font-medium text-purple-600 hover:text-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
-          @click=${() =>
-            storeActions.findAndMutate(comment.id, c => (c.pendingEdit = true))}
+          @click=${() => findAndMutate(comment.id, c => (c.pendingEdit = true))}
         >
           <span
             ><img class="inline pr-1" src="./images/icon-edit.svg" /> Edit</span
@@ -95,7 +99,7 @@ const actionButtonsHtml = (comment: Comment) =>
       `
     : html`
         <button
-          @click=${() => replyTo(comment)}
+          @click=${() => addReply(comment.id)}
           ?disabled=${(comment.replies ?? []).some(r => r.pendingReply)}
           class="px-2 font-medium text-purple-600 hover:text-purple-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -114,7 +118,7 @@ const contentHtml = (
     ? html`<textarea
           .value=${prefix + comment.content}
           @input=${(e: Event) =>
-            storeActions.findAndMutate(
+            findAndMutate(
               comment.id,
               c =>
                 (c.content = (e.target as HTMLTextAreaElement).value.replace(
@@ -132,10 +136,7 @@ const contentHtml = (
             @click=${() => {
               // The content is already in the state. Just finalize the edit.
               if (comment.content.trim()) {
-                storeActions.findAndMutate(
-                  comment.id,
-                  c => (c.pendingEdit = false)
-                );
+                findAndMutate(comment.id, c => (c.pendingEdit = false));
               }
             }}
             class="h-12 rounded-lg bg-purple-600 px-8 text-lg font-medium text-white hover:bg-purple-200 md:h-10 md:px-6"
@@ -215,7 +216,7 @@ const confirmDeleteHtml = () => html`
       </p>
       <div class="grid grid-cols-2 gap-4 font-medium">
         <button
-          @click=${() => storeActions.setRequestedDelete(null)}
+          @click=${() => setRequestedDelete(null)}
           class="bg-grey-500 rounded-lg py-3 text-white hover:opacity-50"
         >
           NO, CANCEL
@@ -235,10 +236,9 @@ const messageHtml = comment =>
   comment.pendingReply
     ? commentInputHtml(
         "SUBMIT",
-        () => storeActions.submitReply(comment.id),
+        () => submitReply(comment.id),
         comment.content,
-        newContent =>
-          storeActions.findAndMutate(comment.id, c => (c.content = newContent))
+        newContent => findAndMutate(comment.id, c => (c.content = newContent))
       )
     : html`<div
         class="mx-auto grid w-full grid-cols-12 items-center gap-2 rounded-md bg-white p-4 md:max-w-2xl"
@@ -300,9 +300,9 @@ function bodyHtml() {
     ${state.comments.map(commentHtml)}
     ${commentInputHtml(
       "SEND",
-      storeActions.addComment,
+      addComment,
       state.newCommentContent,
-      storeActions.setNewCommentContent
+      setNewCommentContent
     )}
     ${state.requestedDelete ? confirmDeleteHtml() : null}
   </section>`;
