@@ -315,4 +315,4 @@ subscribe(renderBody);
 
 // The `createdAtText` function has internal logic to only update the text
 // when needed, so calling `renderBody` frequently is efficient.
-setInterval(renderBody, 1000);
+setInterval(renderBody, 500);

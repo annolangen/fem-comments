@@ -38,14 +38,14 @@ export const initialState: AppState = {
   newCommentContent: "",
 };
 
-export const createActions = (
+export function createActions(
   set: (updater: Partial<State> | ((state: State) => Partial<State>)) => void,
   get: () => State
-): Actions => {
+): Actions {
   /** Creates a new comment object with default properties. */
-  const createComment = (id: number, content: string): Comment => ({
+  const createComment = (id: number): Comment => ({
     id,
-    content,
+    content: "",
     user: get().currentUser,
     createdAt: "now",
     createdAtTs: Date.now(),
@@ -55,7 +55,8 @@ export const createActions = (
   });
 
   function findAndMutate(id: number, mutator: (c: Comment) => void) {
-    const newComments = structuredClone(get().comments); // structuredClone is fine for this app's scale
+    const { comments } = get();
+    const newComments = structuredClone(comments); // structuredClone is fine for this app's scale
     const comment = findComment(newComments, id);
     if (comment) {
       mutator(comment);
@@ -63,25 +64,26 @@ export const createActions = (
     }
   }
 
-  function deleteComment(id: number) {
-    const state = get();
-    const newComments = structuredClone(state.comments);
-    findAndRemove(newComments, id);
-    set({ comments: newComments, requestedDelete: null });
+  function deleteComment(idToDelete: number) {
+    const { comments } = get();
+    const newComments = structuredClone(comments);
+    if (findAndRemove(newComments)) {
+      set({ comments: newComments, requestedDelete: null });
+    }
 
-    function findAndRemove(comments: Comment[], idToDelete: number): boolean {
+    function findAndRemove(comments: Comment[]): boolean {
       const index = comments.findIndex(c => c.id === idToDelete);
       if (index !== -1) {
         comments.splice(index, 1);
         return true;
       }
-      return comments.some(c => findAndRemove(c.replies || [], idToDelete));
+      return comments.some(c => findAndRemove(c.replies || []));
     }
   }
 
   function submitReply(id: number) {
-    const state = get();
-    const commentToSubmit = findComment(state.comments, id);
+    const { comments } = get();
+    const commentToSubmit = findComment(comments, id);
     // If the reply content is empty, treat it as a "cancel" and remove the pending reply.
     if (commentToSubmit && !commentToSubmit.content.trim()) {
       deleteComment(id); // Direct call, no need for get().actions
@@ -95,17 +97,16 @@ export const createActions = (
   }
 
   function addReply(parentId: number) {
-    const state = get();
-    const newId = state.nextId;
+    const { nextId } = get();
     findAndMutate(parentId, parentComment => {
       const newReply: Comment = {
-        ...createComment(newId, ""),
+        ...createComment(nextId),
         replyingTo: parentComment.user.username,
         pendingReply: true,
       };
       (parentComment.replies ??= []).push(newReply as Comment);
     });
-    set({ nextId: newId + 1 });
+    set({ nextId: nextId + 1 });
   }
 
   return {
@@ -116,19 +117,18 @@ export const createActions = (
     setNewCommentContent: (content: string) =>
       set({ newCommentContent: content }),
     addComment: () => {
-      const state = get();
-      const content = state.newCommentContent.trim();
+      const { newCommentContent, nextId, comments } = get();
+      const content = newCommentContent.trim();
       if (!content) return;
-      const newComment = createComment(state.nextId, content);
-      set(s => ({
-        comments: [...s.comments, newComment],
-        nextId: s.nextId + 1,
+      set({
+        comments: [...comments, { ...createComment(nextId), content }],
+        nextId: nextId + 1,
         newCommentContent: "",
-      }));
+      });
     },
     setRequestedDelete: (id: number | null) => set({ requestedDelete: id }),
   };
-};
+}
 
 export const store = createStore<State>()(
   persist(
@@ -140,11 +140,15 @@ export const store = createStore<State>()(
     {
       name: "comment-state",
       partialize: state => ({
-        // Only persist data, not transient UI state
+        // Only persist core data, not transient UI state or derived values
         comments: state.comments,
         currentUser: state.currentUser,
-        nextId: state.nextId,
       }),
+      // After rehydrating, recalculate the nextId to ensure it's always correct.
+      // This is more robust than persisting nextId itself.
+      onRehydrateStorage: state => {
+        if (state) state.nextId = maxId(state.comments) + 1;
+      },
     }
   )
 );
