@@ -1,4 +1,3 @@
-
 // Type Definitions
 export interface Image {
   png: string;
@@ -24,12 +23,15 @@ export interface Comment {
   pendingReply?: boolean;
 }
 
+export type VoteDirection = 1 | -1;
+
 export interface AppState {
   comments: Comment[];
   currentUser: User;
   requestedDelete: number | null;
   nextId: number;
   newCommentContent: string;
+  userVotes: Record<number, VoteDirection>;
 }
 
 export type Actions = {
@@ -47,6 +49,8 @@ export type Actions = {
   setRequestedDelete: (id: number | null) => void;
   /** Submits a pending reply, or cancels it if the content is empty. */
   submitReply: (id: number) => void;
+  /** Casts a vote on a comment. */
+  vote: (commentId: number, direction: VoteDirection) => void;
 };
 
 export interface State extends AppState {

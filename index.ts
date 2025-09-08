@@ -2,7 +2,7 @@
 import "./index.css";
 import { render, html } from "lit-html";
 import { store, durationUnits } from "./src/store";
-import type { Comment } from "./src/types";
+import type { Comment, VoteDirection } from "./src/types";
 
 const { getState, subscribe } = store;
 const {
@@ -13,6 +13,7 @@ const {
   setNewCommentContent,
   setRequestedDelete,
   submitReply,
+  vote,
 } = getState().actions;
 
 if (window.location.hash === "#reset") {
@@ -52,27 +53,40 @@ function deleteRequested() {
 }
 
 // UI Components (from smallest to largest)
-const voteButtonsHtml = (comment: Comment) => html`
-  <span
-    class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 hover:text-purple-200 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
+const voteButtonsHtml = (comment: Comment) => {
+  const { currentUser, userVotes } = getState();
+  const isOwnComment = currentUser.username === comment.user.username;
+  const userVote = userVotes ? userVotes[comment.id] : 0;
+
+  // The active-vote class can be styled in index.css to provide a visual indicator.
+  // For example, to color the SVG purple:
+  // .active-vote img { filter: brightness(0) saturate(100%) invert(41%) sepia(45%) saturate(5501%) hue-rotate(245deg) brightness(93%) contrast(88%); }
+  return html`<span
+    class="bg-grey-100 rounded-md px-4 py-2 font-medium text-purple-600 md:flex md:h-20 md:w-8 md:flex-col md:items-center md:gap-2 md:p-0 md:pt-2"
   >
     <button
       aria-label="Upvote comment"
-      class="inline"
-      @click=${() => findAndMutate(comment.id, c => c.score++)}
+      class="${userVote === 1
+        ? "active-vote"
+        : "hover:text-purple-200"} inline disabled:cursor-not-allowed disabled:opacity-50"
+      ?disabled=${isOwnComment}
+      @click=${() => vote(comment.id, 1)}
     >
       <img src="./images/icon-plus.svg" alt="plus" />
     </button>
     <span class="px-2" aria-live="polite">${comment.score}</span>
     <button
       aria-label="Downvote comment"
-      class="inline"
-      @click=${() => findAndMutate(comment.id, c => c.score--)}
+      class="${userVote === -1
+        ? "active-vote"
+        : "hover:text-purple-200"} inline disabled:cursor-not-allowed disabled:opacity-50"
+      ?disabled=${isOwnComment}
+      @click=${() => vote(comment.id, -1)}
     >
       <img src="./images/icon-minus.svg" class="inline" alt="minus" />
     </button>
-  </span>
-`;
+  </span>`;
+};
 
 const actionButtonsHtml = (comment: Comment) =>
   getState().currentUser.username === comment.user.username

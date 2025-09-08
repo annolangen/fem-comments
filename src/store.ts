@@ -1,7 +1,14 @@
 import { createStore } from "zustand/vanilla";
 import { persist } from "zustand/middleware";
 import data from "../data.json";
-import type { AppState, Actions, State, Comment, User } from "./types";
+import type {
+  AppState,
+  Actions,
+  State,
+  Comment,
+  User,
+  VoteDirection,
+} from "./types";
 
 // Constants
 export const durationUnits = [
@@ -36,6 +43,7 @@ export const initialState: AppState = {
   requestedDelete: null as number | null,
   nextId: maxId(initialCommentsWithTimestamps) + 1,
   newCommentContent: "",
+  userVotes: {},
 };
 
 export function createActions(
@@ -109,6 +117,32 @@ export function createActions(
     set({ nextId: nextId + 1 });
   }
 
+  function vote(commentId: number, direction: VoteDirection) {
+    const { comments, currentUser, userVotes } = get();
+    const newComments = structuredClone(comments);
+    const comment = findComment(newComments, commentId);
+
+    if (!comment || comment.user.username === currentUser.username) {
+      return;
+    }
+
+    const currentVote = userVotes[commentId];
+    const newUserVotes = { ...userVotes };
+
+    if (currentVote === direction) {
+      // User is clicking the same button again - unvote.
+      comment.score -= direction;
+      delete newUserVotes[commentId];
+    } else {
+      // User is casting a new vote or changing their vote.
+      const scoreChange = direction - (currentVote || 0);
+      comment.score += scoreChange;
+      newUserVotes[commentId] = direction;
+    }
+
+    set({ comments: newComments, userVotes: newUserVotes });
+  }
+
   return {
     findAndMutate,
     deleteComment,
@@ -127,6 +161,7 @@ export function createActions(
       });
     },
     setRequestedDelete: (id: number | null) => set({ requestedDelete: id }),
+    vote,
   };
 }
 
@@ -143,6 +178,7 @@ export const store = createStore<State>()(
         // Only persist core data, not transient UI state or derived values
         comments: state.comments,
         currentUser: state.currentUser,
+        userVotes: state.userVotes,
       }),
       // After rehydrating, recalculate the nextId to ensure it's always correct.
       // This is more robust than persisting nextId itself.
